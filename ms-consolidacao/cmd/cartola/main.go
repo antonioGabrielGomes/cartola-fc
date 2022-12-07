@@ -3,10 +3,15 @@ package main
 import (
 	"context"
 	"database/sql"
+	"net/http"
 
 	"github.com/antonioGabrielGomes/cartola-fc/ms-consolidacao/internal/infra/db"
+	httphandler "github.com/antonioGabrielGomes/cartola-fc/ms-consolidacao/internal/infra/http"
 	"github.com/antonioGabrielGomes/cartola-fc/ms-consolidacao/internal/infra/repository"
 	"github.com/antonioGabrielGomes/cartola-fc/ms-consolidacao/pkg/uow"
+	"github.com/go-chi/chi"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
@@ -21,6 +26,17 @@ func main() {
 		panic(err)
 	}
 	registerRepositories(uow)
+
+	r := chi.NewRouter()
+	r.Get("/players", httphandler.ListPlayersHandler(ctx, *db.New(dtb)))
+	r.Get("/my-teams/{teamID}/players", httphandler.ListMyTeamPlayersHandler(ctx, *db.New(dtb)))
+	r.Get("/my-teams/{teamID}/balance", httphandler.GetMyTeamBalanceHandler(ctx, *db.New(dtb)))
+	r.Get("/matches", httphandler.ListMatchesHandler(ctx, repository.NewMatchRepository(dtb)))
+	r.Get("/matches/{matchID}", httphandler.ListMatchByIDHandler(ctx, repository.NewMatchRepository(dtb)))
+
+	if err = http.ListenAndServe(":8080", r); err != nil {
+		panic(err)
+	}
 }
 
 func registerRepositories(uow *uow.Uow) {
